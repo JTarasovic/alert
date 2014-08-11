@@ -54,18 +54,17 @@ var doAlert = function(err, resp){
 // function to fetch new data. Uses the creation timestamp from
 // last message (or start of program)
 var refresh = function() {
-    console.log('Received tickler. Fetching messages after ' + after);
+    console.log('Received tickler. Fetching messages after ' + time);
 
     var options = {
-        modified_after: time
         limit: 5,
+        modified_after: time
     }
     pusher.history(options, doAlert);
 }
 
 // on connect
 var connect = function() {
-    refresh()
     console.log('Connected!');
 }
 
