@@ -65,7 +65,7 @@ var refresh = function() {
 
 // on connect
 var connect = function() {
-    refresh(time - 10000)
+    refresh()
     console.log('Connected!');
 }
 
