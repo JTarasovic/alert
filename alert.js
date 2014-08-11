@@ -30,16 +30,8 @@ var close = function() {
     process.exit();
 }
 
-var nop = function() {
-    console.log('Keep-alive nop received');
-}
-
 var tickle = function(type) {
     console.dir(type);
-}
-
-var push = function(push) {
-    console.log(push);
 }
 
 var error = function(err) {
@@ -52,16 +44,24 @@ var exit = function() {
     stream.close();
 }
 
-var msg = function(msg) {
-    console.log(msg);
-}
+// var nop = function() {
+//     console.log('Keep-alive nop received');
+// }
+//
+// var push = function(push) {
+//     console.log(push);
+// }
+//
+// var msg = function(msg) {
+//     console.log(msg);
+// }
 
 stream.on('connect', connect);
 stream.on('close', close);
-//stream.on('nop', nop);
-//stream.on('tickle', tickle);
-stream.on('push', push);
+stream.on('tickle', tickle);
 stream.on('error', error);
+//stream.on('nop', nop);
+//stream.on('push', push);
 //stream.on('message', msg);
 
 process.on('SIGHUP', exit);
