@@ -9,8 +9,7 @@ var Pushbullet = require('pushbullet'),
     pusher = new Pushbullet(process.env.ALERT_PUSH_API),
     stream= pusher.stream(),
     time = new Date().getTime() / 1000,
-    exec = require('child_process').exec,
-    _sq ='\'', _esq='\\\'',
+    notifier = require('notify-send').normal.timeout(5000),
     me;
 
 
@@ -32,7 +31,7 @@ var processResponse =  function (msg) {
     if (msg.type === 'address')     ret.body = msg.address;
     else if (msg.type === 'file')       ret.body = msg.file_url;
     else if (msg.type === 'note')    ret.body = msg.body;
-    else if (msg.type === 'link')      ret.body = msg.url + (msg.body ? '\n' + msg.body : '');
+    else if (msg.type === 'link')      ret.body = (msg.body ? msg.body + '\n': '') + msg.url ;
     else if (msg.type === 'list') {
         msg.items.forEach(function(elem) {
           ret.body += elem.text + '\n';
@@ -41,9 +40,6 @@ var processResponse =  function (msg) {
     // double check
     if (!ret.body)  ret.body = '';
 
-    // escape double quotes. we'll surround the whole thing back in doAlert
-    ret.subject = ret.subject.replace(_dq, _edq);
-    ret.body = ret.body.replace(_dq, _edq);
     return ret;
 };
 
@@ -65,13 +61,7 @@ var doAlert = function(err, resp){
     // only interested in the newest, non-dismissed push for now
     if((newest.receiver_iden === me.iden) && (newest.dismissed === false)){
         var notif = processResponse(newest);
-        var cmd = 'notify-send -u normal -t 10000 "' +
-        notif.subject + '" "' +
-        notif.body + '"';
-
-        var child = exec(cmd, function(err, stdout, stderr) {
-            if (err) console.error(err);
-        });
+        notifier.notify(notif.subject, notif.body);
     }
 };
 
