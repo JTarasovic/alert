@@ -1,133 +1,31 @@
 #!/usr/bin/env node
 
-// generally the idea is:
-//      1: create stream
-//      2: wait for push tickle
-//      3: fetch updates since the last time we checked
-
-var Pushbullet = require('pushbullet'),
-    pusher = new Pushbullet(process.env.ALERT_PUSH_API),
-    stream= pusher.stream(),
-    time = new Date().getTime() / 1000,
-    notifier = require('notify-send').normal.timeout(5000),
-    me;
-
-
-// turn a push into something usable by notify-send here
-var processResponse =  function (msg) {
-    var ret = {};
-
-    // assign notification subject based on type
-    if (msg.type === 'address') {
-            ret.subject = msg.name;
-    }
-    else  ret.subject = msg.type == 'file' ? msg.file_name : msg.title;
-    // double check
-    if (!ret.subject) ret.subject = 'New Push';
-
-
-    // create notification body
-    ret.body = '';
-    if (msg.type === 'address')     ret.body = msg.address;
-    else if (msg.type === 'file')       ret.body = msg.file_url;
-    else if (msg.type === 'note')    ret.body = msg.body;
-    else if (msg.type === 'link')      ret.body = (msg.body ? msg.body + '\n': '') + msg.url ;
-    else if (msg.type === 'list') {
-        msg.items.forEach(function(elem) {
-          ret.body += elem.text + '\n';
-      });
-    }
-    // double check
-    if (!ret.body)  ret.body = '';
-
-    return ret;
+var notificationd = require('./lib/notificationd');
+var daemon = new notificationd({api: process.env.ALERT_PUSH_API});
+var net = require('net');
+var terminate = function () {
+    daemon.exit.apply(daemon);
+    console.log('disconnecting pushd socket');
+    server.close();
 };
-
-// this will eventually do the actual alerting.
-// it gets the response from the fetched updates and creates alert
-// also, importantly, updates the time since we last got an update
-var doAlert = function(err, resp){
-    if(err) {
-        console.err(err);
-        return;
-    }
-
-    // variable to hold just the newest push
-    var newest = resp.pushes[0];
-
-    // update time to be the created time of the latest push
-    time = newest.modified;
-
-    // only interested in the newest, non-dismissed push for now
-    if((newest.receiver_iden === me.iden) && (newest.dismissed === false)){
-        var notif = processResponse(newest);
-        notifier.notify(notif.subject, notif.body);
-    }
-};
-
-// function to fetch new data. Uses the creation timestamp from
-// last message (or start of program)
-var refresh = function() {
-    console.log('Received tickler. Fetching messages after ' + time);
-    var options = {
-        limit: 5,
-        modified_after: time
-    };
-    pusher.history(options, doAlert);
-};
-
-// on connect
-var connect = function() {
-    console.log('Connected!');
-};
-
-// on close
-var close = function () {
-    console.log('Connection closed');
-
-    // may want to try to restart here?
-    // alternatively, if daemonized, may kick itself back off?
-    process.exit();
-};
-
-// when we get a tickle,
-// check if it's a push type,
-// if so, fetch new pushes
-var tickle = function(type) {
-    if ( type === 'push') refresh();
-};
-
-// close the stream and quit
-var error = function (err) {
-    console.error(err);
-    stream.close();
-};
-
-// function to gracefully shutdown
-var exit = function () {
-    console.log('Received interrupt. Exiting.');
-    stream.close();
-};
-
-// event handlers
-stream.on('connect', connect);
-stream.on('close', close);
-stream.on('tickle', tickle);
-stream.on('error', error);
 
 // catch SIGNALS so we can gracefully exit
-process.on('SIGHUP', exit);
-process.on('SIGTERM', exit);
-process.on('SIGINT', exit);
+process.on('SIGHUP', terminate)
+    .on('SIGTERM', terminate)
+    .on('SIGINT', terminate);
 
-// start by grabbing our own information
-pusher.me(function(err, resp) {
-    if(err){
-        console.error(err);
-        process.exit(1);
-    }
-    me = resp;
+var server = net.createServer(function(conn) { //'connection' listener
+    conn.on('end', function() {
+        return;
+    });
 
-    // connect to websocket stream
-    stream.connect();
+    conn.on('data', function(data){
+        console.log(data.toString());
+        conn.write('Received: ' + data + '\n');
+    });
+    conn.write('success\n');
+});
+
+server.listen('/tmp/pushd.sock', function() { //'listening' listener
+    console.log('pushd listening at /tmp/pushd.sock');
 });

@@ -17,6 +17,7 @@
   },
   "homepage": "https://github.com/JTarasovic/alert",
   "dependencies": {
+    "notify-send": "^0.1.2",
     "pushbullet": "^1.3.0"
   }
 }
